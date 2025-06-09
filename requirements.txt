@@ -1,0 +1,10 @@
+langgraph
+langchain
+openai
+groq
+faiss-cpu
+redis
+streamlit
+python-dotenv 
+sentence-transformers
+numpy 

@@ -1,0 +1,6 @@
+1. NPCS to react wrt world state, quests and narrative director
+2. NPCs update their inventories with interaction with players
+3. Integrate langsmith
+4. Compute location
+5. establish a world. Integration of multiple npcs
+6. Refine memory retrieval
