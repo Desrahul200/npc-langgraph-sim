@@ -7,4 +7,6 @@ redis
 streamlit
 python-dotenv 
 sentence-transformers
-numpy 
+numpy
+fastapi
+uvicorn 

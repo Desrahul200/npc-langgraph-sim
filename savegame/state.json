@@ -15,9 +15,9 @@
   "quest_history": [],
   "last_event": null,
   "event_params": {},
-  "response": "Ah, yes, Bob! I remember you sharing a secret with me about having a crush on Helena. I agreed to keep it anonymous, so don't worry, it's safe with me.",
-  "simulation_time": 17,
-  "time_of_day": "Afternoon",
+  "response": "Ah, greetings Bob! I'm Malrik, a merchant who's been traveling these lands for a while. I've got a pouch of spices that'll make your taste buds dance. What brings you to this fine town?",
+  "simulation_time": 1,
+  "time_of_day": "Night",
   "weather": "Windy",
   "pending_quest": null,
   "npc_states": {
@@ -29,112 +29,16 @@
         "spice_pouch"
       ],
       "memory": [
-        "Malrik_merchant remembers that Helena Guard is a steadfast town guard, dedicated to keeping the peace and ensuring the safety of our fair town.",
-        "Malrik_merchant remembers that the player shared a secret with him about having a crush on Helena, but he agreed to keep the identity anonymous.",
-        "Malrik_merchant remembers that the player introduced themselves as Bob and initiated a conversation, inquiring about Bob's presence in the town.",
-        "Malrik_merchant remembers that the player asked what their name was, and the merchant responded by recalling that the player had previously introduced themselves as \"Bob\".",
-        "Malrik_merchant remembers that the player, who introduced themselves as Bob, greeted him with a friendly \"Hello!\"",
-        "Malrik_merchant remembers that the player greeted him with a simple \"Hello!\" and then began a conversation, inquiring about the player's purpose for visiting the town.",
-        "Malrik_merchant remembers that the player greeted him with a friendly \"Hello!\" and he responded by welcoming them to the settlement and asking about their purpose for visiting.",
-        "Malrik_merchant remembers that the player introduced themselves as Bob.",
-        "Malrik_merchant remembers that the player inquired about his business and he responded by sharing the news of a new shipment of spices from the Spice Islands and offering to show his latest inventory.",
-        "Malrik_merchant remembers that the player greeted him with a friendly \"Hello from BP\" and responded by introducing himself and asking what brought the player to the settlement.",
-        "Malrik_merchant remembers that the player greeted him from the BP and responded with a warm welcome, introducing himself as Malrik, a merchant, and inquiring about the player's purpose for visiting the settlement.",
-        "Malrik_merchant remembers that the player, who introduced themselves as a traveler from the big city, arrived at the settlement and greeted him with a \"Hello from BP\", prompting him to welcome them and introduce himself as a merchant.",
-        "Malrik_merchant remembers that a traveler from the big city, identified as \"BP\", greeted him with a message saying \"Hello from BP\" before introducing himself and inquiring about the traveler's purpose for visiting the settlement.",
-        "Malrik_merchant remembers that the player, who introduced themselves as coming from the big city, greeted him with a \"Hello from BP\" and he responded with a warm welcome and an inquiry about their purpose for visiting the settlement.",
-        "Malrik_merchant remembers that a traveler from the big city, referred to as \"BP\", was greeted warmly and asked how they could be assisted during their visit.",
-        "Malrik_merchant remembers that the player, BP, is the traveler from the big city and that they had a previous conversation earlier.",
-        "Malrik_merchant remembers that the player, Bob, shared a secret with him about having a crush on Helena and agreed to keep it anonymous."
+        "Malrik_merchant remembers that Bob, a traveler, introduced himself and expressed interest in the spices Malrik had to offer, sparking a conversation about Malrik's merchant profession and the town they were in."
       ],
       "faiss_id_to_memory_text": {
         "0": {
-          "text": "Malrik_merchant remembers that Helena Guard is a steadfast town guard, dedicated to keeping the peace and ensuring the safety of our fair town.",
+          "text": "Malrik_merchant remembers that Bob, a traveler, introduced himself and expressed interest in the spices Malrik had to offer, sparking a conversation about Malrik's merchant profession and the town they were in.",
           "npc_id": "malrik_merchant",
           "timestamp": 0
-        },
-        "1": {
-          "text": "Malrik_merchant remembers that the player shared a secret with him about having a crush on Helena, but he agreed to keep the identity anonymous.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 1
-        },
-        "2": {
-          "text": "Malrik_merchant remembers that the player introduced themselves as Bob and initiated a conversation, inquiring about Bob's presence in the town.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 2
-        },
-        "3": {
-          "text": "Malrik_merchant remembers that the player asked what their name was, and the merchant responded by recalling that the player had previously introduced themselves as \"Bob\".",
-          "npc_id": "malrik_merchant",
-          "timestamp": 3
-        },
-        "4": {
-          "text": "Malrik_merchant remembers that the player, who introduced themselves as Bob, greeted him with a friendly \"Hello!\"",
-          "npc_id": "malrik_merchant",
-          "timestamp": 4
-        },
-        "5": {
-          "text": "Malrik_merchant remembers that the player greeted him with a simple \"Hello!\" and then began a conversation, inquiring about the player's purpose for visiting the town.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 5
-        },
-        "6": {
-          "text": "Malrik_merchant remembers that the player greeted him with a friendly \"Hello!\" and he responded by welcoming them to the settlement and asking about their purpose for visiting.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 6
-        },
-        "7": {
-          "text": "Malrik_merchant remembers that the player introduced themselves as Bob.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 7
-        },
-        "8": {
-          "text": "Malrik_merchant remembers that the player inquired about his business and he responded by sharing the news of a new shipment of spices from the Spice Islands and offering to show his latest inventory.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 8
-        },
-        "9": {
-          "text": "Malrik_merchant remembers that the player greeted him with a friendly \"Hello from BP\" and responded by introducing himself and asking what brought the player to the settlement.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 9
-        },
-        "10": {
-          "text": "Malrik_merchant remembers that the player greeted him from the BP and responded with a warm welcome, introducing himself as Malrik, a merchant, and inquiring about the player's purpose for visiting the settlement.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 10
-        },
-        "11": {
-          "text": "Malrik_merchant remembers that the player, who introduced themselves as a traveler from the big city, arrived at the settlement and greeted him with a \"Hello from BP\", prompting him to welcome them and introduce himself as a merchant.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 11
-        },
-        "12": {
-          "text": "Malrik_merchant remembers that a traveler from the big city, identified as \"BP\", greeted him with a message saying \"Hello from BP\" before introducing himself and inquiring about the traveler's purpose for visiting the settlement.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 12
-        },
-        "13": {
-          "text": "Malrik_merchant remembers that the player, who introduced themselves as coming from the big city, greeted him with a \"Hello from BP\" and he responded with a warm welcome and an inquiry about their purpose for visiting the settlement.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 13
-        },
-        "14": {
-          "text": "Malrik_merchant remembers that a traveler from the big city, referred to as \"BP\", was greeted warmly and asked how they could be assisted during their visit.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 14
-        },
-        "15": {
-          "text": "Malrik_merchant remembers that the player, BP, is the traveler from the big city and that they had a previous conversation earlier.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 15
-        },
-        "16": {
-          "text": "Malrik_merchant remembers that the player, Bob, shared a secret with him about having a crush on Helena and agreed to keep it anonymous.",
-          "npc_id": "malrik_merchant",
-          "timestamp": 16
         }
       },
-      "next_faiss_id": 17
+      "next_faiss_id": 1
     },
     "helena_guard": {
       "npc_id": "helena_guard",
@@ -144,18 +48,9 @@
         "spear",
         "shield"
       ],
-      "memory": [
-        "Someone thinks you're cute, Helena!",
-        "Someone thinks you're cute, Helena!"
-      ],
-      "faiss_id_to_memory_text": {
-        "0": {
-          "text": "Someone thinks you're cute, Helena!",
-          "npc_id": "helena_guard",
-          "timestamp": 1
-        }
-      },
-      "next_faiss_id": 1
+      "memory": [],
+      "faiss_id_to_memory_text": {},
+      "next_faiss_id": 0
     },
     "rowan_bard": {
       "npc_id": "rowan_bard",

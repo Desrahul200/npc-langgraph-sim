@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+*.venv/
+
+env/
+# VSCode / IDE
+.vscode/
+.idea/
+# Environment
+.env
+# Save & FAISS
+savegame/
+*.index
+*_faiss_mapping.json
+
+# Documentation & Notes
+notes.txt
+npc_simulation_graph.png
+
+###############################################################################
+# Unreal Engine 5.6 – GENERATED / REBUILDABLE
+###############################################################################
+# Every file Unreal can regenerate or that would bloat the repo
+/unreal/**/Binaries/
+/unreal/**/Build/
+/unreal/**/DerivedDataCache/
+/unreal/**/Intermediate/
+/unreal/**/Saved/
+/unreal/**/.vs/
+/unreal/**/*.opensdf
+/unreal/**/*.sdf
+/unreal/**/*.suo
+/unreal/**/*.VC.db
+# Live Coding + Crash dumps
+/unreal/**/LiveCoding/*.*
+/unreal/**/CrashReports/*
+
+# Additional Unreal Engine files
+/unreal/**/Logs/
+/unreal/**/Profiling/
+/unreal/**/Automation/
+/unreal/**/Config/DefaultEngine.ini
+/unreal/**/Config/DefaultGame.ini
+/unreal/**/Config/DefaultInput.ini
+/unreal/**/Config/DefaultScalability.ini
+/unreal/**/Config/DefaultEditorPerProjectUserSettings.ini
+/unreal/**/Config/DefaultEditorSettings.ini
+/unreal/**/Config/DefaultGameUserSettings.ini
+/unreal/**/Config/DefaultEngine.ini
+/unreal/**/Config/DefaultGame.ini
+/unreal/**/Config/DefaultInput.ini
+/unreal/**/Config/DefaultScalability.ini
+/unreal/**/Config/DefaultEditorPerProjectUserSettings.ini
+/unreal/**/Config/DefaultEditorSettings.ini
+/unreal/**/Config/DefaultGameUserSettings.ini
+
+# Unreal generated files
+*.generated.h
+*.generated.cpp
+*.generated.uasset
+*.generated.umap
+
+# Unreal temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Unreal shader compilation
+/unreal/**/Shaders/
+/unreal/**/ShaderCompileWorker/
+
+# Unreal packaging
+/unreal/**/Packaged/
+/unreal/**/Staged/
+/unreal/**/WindowsNoEditor/
+/unreal/**/Windows/
+/unreal/**/Linux/
+/unreal/**/Mac/
+
+# Large Unreal build artifacts (50MB+ files)
+/unreal/**/*.VC.db
+/unreal/**/Browse.VC.db
+/unreal/**/Solution.VC.db
+/unreal/**/*.ipch
+/unreal/**/CachedAssetRegistry_*.bin
+/unreal/**/SharedPCH.*.obj
+/unreal/**/SharedPCH.*.pch
+/unreal/**/*.sln
+
+# Additional large Unreal files (10MB+)
+/unreal/**/*.pdb
+/unreal/**/*.vcxproj
+/unreal/**/*.vcxproj.filters
+/unreal/**/*.json
+/unreal/**/slnx.sqlite
+/unreal/**/fileList.bin
