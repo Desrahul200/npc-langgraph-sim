@@ -13,7 +13,7 @@ def narrative_director_node(input_data):
     state = input_data  # shorthand
     sim_time = state.get("simulation_time", 0)
     tod = state.get("time_of_day", "")
-    location = state.get("location", "")
+    location = state.get("player_location", "")
     weather = state.get("weather", "")
     
     active_quests = state.get("active_quests", [])

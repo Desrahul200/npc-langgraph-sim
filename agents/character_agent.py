@@ -1,219 +1,144 @@
-# agents/character_agent.py
-
 import os
+import json
+import numpy as np
+import faiss
 from groq import Groq
 from sentence_transformers import SentenceTransformer
-import numpy as np
-from utils.print_utils import summarize_for_printing
-import faiss  # Ensure faiss is imported
-import json
-# Constants
-EMBEDDING_DIMENSION = 384  # Should match MemorySynthesizer and main.py
+from typing import Any, Dict
 
-# Initialize SentenceTransformer model
-try:
-    embedding_model_char = SentenceTransformer('all-MiniLM-L6-v2')
-    SENTENCE_TRANSFORMER_AVAILABLE_CHAR = True
-    print("SentenceTransformer model loaded successfully for CharacterAgent.")
-except Exception as e:
-    print(f"Warning: Could not load SentenceTransformer model for CharacterAgent: {e}. Semantic retrieval will not be effective.")
-    embedding_model_char = None
-    SENTENCE_TRANSFORMER_AVAILABLE_CHAR = False
-
-# Initialize Groq Client
+# Initialize Groq client
 try:
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-    GROQ_API_KEY_AVAILABLE = True
-except Exception as e:
-    print(f"Warning: Groq API key not found or client could not be initialized for CharacterAgent: {e}")
+    GROQ_OK = True
+except Exception:
     client = None
-    GROQ_API_KEY_AVAILABLE = False
+    GROQ_OK = False
 
-def character_agent_node(input_data):
-    print(f"Character Agent received: {summarize_for_printing(input_data, keys_to_redact=['faiss_index'])}")
+# Initialize embedding model for FAISS retrieval
+try:
+    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    EMB_OK = True
+except Exception:
+    embedding_model = None
+    EMB_OK = False
 
-    npc_id = input_data.get("npc_id", "unknown_npc")
-    personality = input_data.get("npc_personality", "a generic NPC")
-    emotion_state = input_data.get("npc_emotion_state", "neutral")
-    inventory_description = input_data.get("npc_inventory_description", "nothing of note")
+def character_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    print(f"Character Agent received: {{npc_id={state['event_params'].get('npc_id')}, text=\"{state['event_params'].get('text')}\"}}")
+    # 1) Extract NPC and player input
+    params      = state.get("event_params", {}) or {}
+    npc_id      = params.get("npc_id", "unknown_npc")
+    player_text = params.get("text", "").strip()
 
-    player_input = input_data.get("player_input", "").strip()
-    response_text = "I... don't know what to say. (Error in LLM call or no input)"
-    updated_emotion_state = emotion_state
+    # Fallback if missing
+    if npc_id not in state["npc_states"] or not player_text:
+        state["response"]    = "…"
+        state["tool_action"] = None
+        return state
 
-    # --- Get FAISS components and current time from input_data ---
-    faiss_index = input_data.get("faiss_index")
-    faiss_id_to_memory_text = input_data.get("faiss_id_to_memory_text", {})
-    current_time = input_data.get("simulation_time", 0)
+    npc = state["npc_states"][npc_id]
+    personality  = npc.get("personality", "an NPC")
+    emotion      = npc.get("emotion_state", "neutral")
+    inventory    = npc.get("inventory", [])
+    inv_desc     = ", ".join(inventory) if inventory else "nothing"
+    other_npc_entries = []
+    for other_id, other_sub in state["npc_states"].items():
+        if other_id == npc_id:
+            continue
+        # e.g. "helena_guard (steadfast town guard)"
+        other_npc_entries.append(f"{other_id} ({other_sub.get('personality','')})")
+    other_npcs_str = ", ".join(other_npc_entries) if other_npc_entries else "none"
 
-    if not GROQ_API_KEY_AVAILABLE or not client:
-        print(f"Character Agent ({npc_id}): Groq API key/client not available. Returning stubbed response.")
-        player_input_lower = player_input.lower()
-        if "hello" in player_input_lower or "hi" in player_input_lower:
-            response_text = "Hmph. What is it? (Groq not available)"
-        else:
-            response_text = "I can't seem to think right now. (Groq not available)"
-        return {"response": response_text, "npc_emotion_state": updated_emotion_state}
+    # 2) FAISS-based memory recall
+    raw = npc["memory"]
+    if raw:
+        # show last 3 memories if nothing better
+        fallback = "\n".join(f" • {m}" for m in raw[-3:])
+    else:
+        fallback = "I have no specific memories to draw on."
 
-    if not player_input:
-        response_text = "You said nothing. What do you want?"
-        if personality == "a slightly grumpy but knowledgeable old librarian":
-            updated_emotion_state = "annoyed"
-        return {"response": response_text, "npc_emotion_state": updated_emotion_state}
+    relevant_memories_str = fallback
+
+    faiss_index = npc.get("faiss_index")
+    id2txt      = npc.get("faiss_id_to_memory_text", {})
+    now         = state.get("simulation_time", 0)
+
+    if EMB_OK and embedding_model and faiss_index is not None and faiss_index.ntotal > 0:
+        # encode & normalize
+        vec = embedding_model.encode(player_text, convert_to_numpy=True)
+        if vec.ndim == 1: vec = vec.reshape(1, -1)
+        vec = vec.astype("float32")
+        norms = np.linalg.norm(vec, axis=1, keepdims=True).clip(min=1e-12)
+        vec /= norms
+
+        # always retrieve top 5, no score cutoff
+        D, I = faiss_index.search(vec, k=5)
+        candidates = []
+        decay = 0.1
+        for score, idx in zip(D[0], I[0]):
+            if idx < 0: continue
+            entry = id2txt.get(int(idx))
+            if not entry or entry.get("npc_id") != npc_id: continue
+            age = now - entry.get("timestamp", 0)
+            weight = score * max(0.0, 1 - decay * age)
+            candidates.append((weight, entry["text"]))
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        top_texts = [txt for w, txt in candidates[:3]]
+        if top_texts:
+            relevant_memories_str = "Past memories:\n" + "\n".join(f" • {t}" for t in top_texts)
     
-    # We'll let the LLM pick the new emotion instead of hard-coding it here:
-    updated_emotion_state = emotion_state
-
-
-    # --- FAISS Semantic Memory Retrieval with Time-Weighted Decay ---
-    relevant_memories_str = "This is the first time we are meeting, or no specific memories were recalled."
-    recalled_memories_count = 0
-
-    # How many raw matches to fetch from FAISS before re-ranking
-    num_memories_to_recall = 5
-    # Inner‐product threshold (for IndexFlatIP). Only consider anything above this raw score
-    similarity_threshold = 0.1
-
-    if (
-        player_input
-        and SENTENCE_TRANSFORMER_AVAILABLE_CHAR
-        and embedding_model_char
-        and faiss_index
-        and faiss_index.ntotal > 0
-    ):
-        try:
-            # 1) Encode player input
-            raw_player_embedding = embedding_model_char.encode(player_input)
-            if raw_player_embedding.ndim == 1:
-                player_input_embedding_np = np.expand_dims(raw_player_embedding, axis=0)
-            else:
-                player_input_embedding_np = raw_player_embedding
-            player_input_embedding_np = player_input_embedding_np.astype('float32')
-            # Normalize to unit length (so inner-product = cosine similarity)
-            norms_q = np.linalg.norm(player_input_embedding_np, axis=1, keepdims=True)
-            norms_q[norms_q == 0] = 1e-12
-            player_input_embedding_np = player_input_embedding_np / norms_q
-
-            print(f"Character Agent ({npc_id}): Searching FAISS index (size: {faiss_index.ntotal}) with input embedding (shape: {player_input_embedding_np.shape})...")
-
-            # 2) Perform raw FAISS search (un‐weighted)
-            D, I = faiss_index.search(player_input_embedding_np, k=num_memories_to_recall)
-            raw_ids = I[0]
-            raw_scores = D[0]
-
-            print(f"Character Agent ({npc_id}): FAISS search results - IDs: {raw_ids}, Scores: {raw_scores}")
-
-            # 3) Build a list of (weighted_score, id, text)
-            candidates = []
-            decay_rate = 0.1  # Adjust this to control how quickly older memories decay
-
-            for idx, score in zip(raw_ids, raw_scores):
-                if idx == -1 or score < similarity_threshold:
-                    continue
-
-                # Look up the memory entry
-                mem_entry = faiss_id_to_memory_text.get(int(idx))
-                if not mem_entry:
-                    continue
-
-                # Only recall memories belonging to this NPC
-                if mem_entry.get("npc_id") != npc_id:
-                    print(f"Character Agent ({npc_id}): Memory ID {idx} belongs to another NPC ({mem_entry.get('npc_id')}). Skipping.")
-                    continue
-
-                # Compute age = current_time − timestamp
-                ts = mem_entry.get("timestamp", 0)
-                age = current_time - ts
-                # Linear decay factor (clamped to ≥ 0)
-                decay_factor = max(0.0, 1.0 - decay_rate * age)
-                weighted_score = score * decay_factor
-
-                print(
-                    f"Character Agent ({npc_id}): "
-                    f"Memory ID {idx}, raw_score={score:.4f}, timestamp={ts}, age={age}, "
-                    f"decay_factor={decay_factor:.3f}, weighted_score={weighted_score:.4f}"
-                )
-
-                candidates.append((weighted_score, idx, mem_entry["text"]))
-
-            # 4) Sort candidates by weighted_score descending
-            candidates.sort(key=lambda x: x[0], reverse=True)
-
-            # 5) Pick top‐3 after weighting
-            top_n = 3
-            top_relevant_memories_text = [text for (w, _, text) in candidates[:top_n] if w > 0]
-            recalled_memories_count = len(top_relevant_memories_text)
-
-            if top_relevant_memories_text:
-                relevant_memories_str = "Relevant recent memories based on your statement:"
-                for i, mem_t in enumerate(top_relevant_memories_text):
-                    relevant_memories_str += f"\n  Memory {i+1}: {mem_t}"
-            else:
-                relevant_memories_str = (
-                    "I have some memories, but none seem directly relevant to your statement."
-                    if faiss_index.ntotal > 0
-                    else "I don't seem to have any specific memories stored yet."
-                )
-
-        except Exception as e:
-            print(f"Character Agent ({npc_id}): Error during FAISS semantic memory retrieval: {e}")
-            relevant_memories_str = "I tried to recall our past, but my memory is a bit hazy right now (FAISS error)."
-    elif not (SENTENCE_TRANSFORMER_AVAILABLE_CHAR and embedding_model_char):
-        relevant_memories_str = "My ability to recall specific memories is limited right now (embedding model issue)."
-    else:  # no index or empty
-        relevant_memories_str = "I don't seem to have any specific memories stored yet."
-
-    print(f"Character Agent ({npc_id}): Recalled {recalled_memories_count} memories using FAISS.")
-
-
+    # 3) Build LLM prompt
     system_prompt = (
-        f"You are the NPC '{npc_id}', with personality: {personality}. "
-        f"You currently feel: {updated_emotion_state}. "
-        f"Your inventory: {inventory_description}.\n"
+        f"You are '{npc_id}', {personality}. You feel '{emotion}'.\n"
+        f"Inventory: {inv_desc}.\n"
         f"{relevant_memories_str}\n\n"
-        "When the player speaks, return ONLY valid JSON with three keys:\n"
+        f"Other NPCs you could share gossip with: {other_npcs_str}.\n\n"
+        "When you reply, return ONLY valid JSON with these keys:\n"
         "{\n"
-        '  "response": "<your spoken reply in character>",\n'
-        '  "emotion_state": "<one of: angry, annoyed, neutral, happy, sad, excited, confused, curious>"\n'
-        '  "tool_action": { "type": "<action_name>", "params": { … } }  // or null if none\n'
+        '  "response": string,\n'
+        '  "emotion_state": one of [neutral,happy,sad,angry,curious],\n'
+        '  "tool_action": { "type": string, "params": {...} } or null\n'
         "}\n\n"
-        "Answer only with that JSON—do NOT include any extra text.\n"
+        "# GOSSIP INSTRUCTIONS\n"
+        "If you want to share private gossip with another NPC in the world, "
+        "set tool_action to:\n"
+        '  { "type": "gossip", "params": { '
+        '"target_npc": "<that_npc_id>", "message": "<your private message>" } }\n'
+        "Otherwise set tool_action to null.\n"
     )
-    user_prompt = f"The player says: \"{player_input}\""
+    user_prompt = f"Player says: \"{player_text}\""
 
-    try:
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt},
-            ],
-            model="llama3-70b-8192",
-            temperature=0.75, max_tokens=200, top_p=0.9,
-        )
-        llm_output = chat_completion.choices[0].message.content.strip()
+    # 4) Call Groq and parse
+    response_text = ""
+    new_emotion   = emotion
+    tool_action   = None
 
-        # Attempt to parse JSON. If JSON parsing fails, fall back gracefully.
+    if GROQ_OK:
         try:
-            parsed = json.loads(llm_output)
-            response_text = parsed.get("response", "").strip()
-            new_emotion = parsed.get("emotion_state", "").strip().lower()
-            raw_action = parsed.get("tool_action", None)
-            tool_action = raw_action if isinstance(raw_action, dict) else None
-            # Only accept it if it’s one of our allowed labels:
-            if new_emotion in {"angry","annoyed","neutral","happy","sad","excited","confused","curious"}:
-                updated_emotion_state = new_emotion
-            else:
-                # If it’s invalid or missing, keep the old state
-                updated_emotion_state = emotion_state
+            comp = client.chat.completions.create(
+                messages=[
+                    {"role":"system","content":system_prompt},
+                    {"role":"user",  "content":user_prompt}
+                ],
+                model="llama3-8b-8192",
+                temperature=0.7,
+                max_tokens=150,
+            )
+            raw = comp.choices[0].message.content.strip()
+            data = json.loads(raw)
+            response_text = data.get("response", "")
+            emo = data.get("emotion_state", emotion)
+            if emo in {"neutral","happy","sad","angry","curious"}:
+                new_emotion = emo
+            tool_action = data.get("tool_action")
         except Exception:
-            # If parsing fails, just treat the entire LLM output as the response,
-            # and leave emotion unchanged:
-            response_text = llm_output
-            updated_emotion_state = emotion_state
-            tool_action = None
-        print(f"Character Agent ({npc_id}): Received JSON from Groq: {llm_output}")
-    except Exception as e:
-        print(f"Character Agent ({npc_id}): Error during Groq API call: {e}")
-        response_text = f"I seem to be having trouble forming words right now. (Error: {e})"
+            response_text = "…"
+    else:
+        # simple fallback
+        response_text = "I'm not thinking clearly right now."
 
-    return {"response": response_text, "npc_emotion_state": updated_emotion_state, "tool_action": tool_action}
+    # 5) Write back into state
+    state["response"]                         = response_text
+    state["npc_states"][npc_id]["emotion_state"] = new_emotion
+    state["tool_action"]                       = tool_action
+    print(f"Character Agent ({npc_id}): recalled memories:\n{relevant_memories_str}")
+    return state

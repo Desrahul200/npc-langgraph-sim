@@ -2,151 +2,179 @@ import os
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 from utils.print_utils import summarize_for_printing
-import numpy as np # Ensure numpy is imported
-import faiss # Ensure faiss is imported (though not directly used in type hints here)
+import numpy as np
+import faiss
 
-# Constants for FAISS (embedding dimension should match main.py)
+# Constants for FAISS
 EMBEDDING_DIMENSION = 384
 
-# Attempt to import the shared long-term memory store from main.py
-# This creates a dependency on main.py being in the Python path, which is typical when running from project root.
-# try:
-#     from main import npc_long_term_memory
-# except ImportError:
-#     print("Warning: Could not import npc_long_term_memory from main.py. Long-term memory will not persist across calls in this context.")
-#     npc_long_term_memory = {} # Local fallback if import fails (e.g., during isolated testing of the agent)
-
-# Initialize SentenceTransformer model
-# This will download the model on first run if not cached.
-# Using a relatively small and fast model.
+# Load embedding model
 try:
     embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
     SENTENCE_TRANSFORMER_AVAILABLE = True
-    print("SentenceTransformer model loaded successfully for MemorySynthesizer.") # Clarified agent name
 except Exception as e:
-    print(f"Warning: Could not load SentenceTransformer model for MemorySynthesizer: {e}. Semantic embeddings will not be generated.")
+    print(f"Warning: could not load SentenceTransformer: {e}")
     embedding_model = None
     SENTENCE_TRANSFORMER_AVAILABLE = False
 
-# Initialize Groq Client
+# Load Groq client
 try:
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
     GROQ_API_KEY_AVAILABLE = True
 except Exception as e:
-    print(f"Warning: Groq API key not found or client could not be initialized for MemorySynthesizer: {e}")
+    print(f"Warning: Groq init failed: {e}")
     client = None
     GROQ_API_KEY_AVAILABLE = False
 
 def memory_synthesizer_node(input_data):
-    # print(f"Memory Synthesizer received (summary): {input_summary}") # Old print
-    print(f"Memory Synthesizer received: {summarize_for_printing(input_data, keys_to_redact=['faiss_index'])}")
-
-    player_input = input_data.get("player_input", "(no player input recorded)")
-    npc_response = input_data.get("response", "(no NPC response recorded)")
-    npc_id = input_data.get("npc_id", "unknown_npc")
-
-    # --- Get FAISS components from input_data ---
-    faiss_index = input_data.get("faiss_index")
-    faiss_id_to_memory_text = input_data.get("faiss_id_to_memory_text", {})
-    current_next_faiss_id = input_data.get("next_faiss_id", 0)
+    """
+    1) Handle direct memory_update from gossip_node.
+    2) Otherwise, summarize the last interaction via Groq & embed via FAISS.
+    """
+    # 1) Direct memory updates (gossip) ────────────────────────────
+    #    We still want to handle the target NPC's new raw memory,
+    #    but do NOT return immediately—fall through so the LLM
+    #    summarization can also index *this* NPC's own turn.
     current_time = input_data.get("simulation_time", 0)
-    if faiss_index is None:
-        print(f"Warning: MemorySynthesizer ({npc_id}) did not receive a FAISS index. Memory will not be saved to FAISS.")
-        # Fallback behavior: still generate summary but don't save to FAISS
-        # or potentially re-initialize a temporary one if that's desired (not done here)
+    if input_data.get("memory_update") and input_data.get("memory_owner"):
+        owner = input_data["memory_owner"]
+        text  = input_data["memory_update"]
+        npc   = input_data["npc_states"][owner]
 
-    # Default memory update if LLM call is not possible or fails
-    memory_update_text = f"Interaction occurred: Player said '{player_input}', NPC {npc_id} responded '{npc_response}'. (Fallback memory)"
-    updated_faiss_components = {
-        "faiss_index": faiss_index,
-        "faiss_id_to_memory_text": faiss_id_to_memory_text,
-        "next_faiss_id": current_next_faiss_id
-    }
+        # a) Append raw text to the target NPC's memory
+        npc["memory"].append(text)
 
-    if not GROQ_API_KEY_AVAILABLE or not client:
-        print(f"Memory Synthesizer ({npc_id}): Groq API key/client not available. Returning fallback memory.")
-        return {"memory_update": memory_update_text, **updated_faiss_components} # Return FAISS components even on fallback
+        # b) Embed & index into that NPC's FAISS
+        if npc["faiss_index"] is not None and SENTENCE_TRANSFORMER_AVAILABLE and embedding_model:
+            vec = embedding_model.encode(text, convert_to_numpy=True)
+            if vec.ndim == 1: vec = vec.reshape(1, -1)
+            emb = vec.astype("float32")
+            norms = np.linalg.norm(emb, axis=1, keepdims=True).clip(min=1e-12)
+            emb /= norms
 
-    if player_input == "(no player input recorded)" and npc_response == "(no NPC response recorded)":
-        memory_update_text = "No specific interaction details to summarize. (Fallback memory)"
-        return {"memory_update": memory_update_text, **updated_faiss_components}
+            mid = npc["next_faiss_id"]
+            npc["faiss_index"].add_with_ids(emb, np.array([mid], dtype="int64"))
+            npc["faiss_id_to_memory_text"][mid] = {
+                "text":      text,
+                "npc_id":    owner,
+                "timestamp": current_time,
+            }
+            npc["next_faiss_id"] = mid + 1
 
-    # --- Construct Prompt for LLM to summarize the interaction ---
-    # The goal is a concise memory entry from the NPC's perspective.
-    system_prompt = (
-        f"You are a memory synthesis module for an NPC named {npc_id}. "
-        f"Your task is to create a brief, third-person memory entry summarizing an interaction. "
-        f"Focus on the key information exchanged or events that occurred. Start the memory with '{npc_id} remembers that...' or similar. Example: '{npc_id} remembers that the player asked about the weather, and {npc_id} mentioned it looked like rain.'"
+        # clear so we don't accidentally re‐process it below
+        input_data["memory_update"] = None
+        input_data["memory_owner"]  = None
+
+    # 2) Fall back to LLM summarization for the speaking NPC ────────
+    #    This will create a concise "X remembers that…" sentence
+    #    and index it into *their* FAISS.  That's how Malrik gets
+    #    his own memory of the last turn.
+
+    # Debug log
+    print("Memory Synthesizer received:", summarize_for_printing(input_data, keys_to_redact=["faiss_index"]))
+
+    params       = input_data.get("event_params", {}) or {}
+    npc_id       = params.get("npc_id", "unknown_npc")
+    player_input = params.get("text", "(no player text)")
+    npc_response = input_data.get("response", "(no NPC response)")
+    current_time = input_data.get("simulation_time", 0)
+
+    # safety check
+    if npc_id not in input_data["npc_states"]:
+        return input_data
+    npc = input_data["npc_states"][npc_id]
+
+    # fallback summary
+    summary = (
+        f"{npc_id} remembers that the player said '{player_input}', "
+        f"and {npc_id} replied '{npc_response}'."
     )
 
-    interaction_to_summarize = f"Player said: \"{player_input}\"\n{npc_id} (NPC) responded: \"{npc_response}\""
+    # if no Groq, index fallback and return
+    if not GROQ_API_KEY_AVAILABLE or client is None:
+        print(f"MemorySynthesizer ({npc_id}): Groq unavailable, using fallback.")
+        npc["memory"].append(summary)
+        if npc["faiss_index"] is not None and SENTENCE_TRANSFORMER_AVAILABLE:
+            vec = embedding_model.encode(summary, convert_to_numpy=True)
+            if vec.ndim == 1:
+                vec = vec.reshape(1, -1)
+            emb = vec.astype("float32")
+            norms = np.linalg.norm(emb, axis=1, keepdims=True)
+            norms[norms == 0] = 1e-12
+            emb /= norms
 
-    user_prompt = f"Summarize the following interaction into a concise memory entry for {npc_id}:\n\n{interaction_to_summarize}"
+            mid = npc["next_faiss_id"]
+            npc["faiss_index"].add_with_ids(emb, np.array([mid], dtype='int64'))
+            npc["faiss_id_to_memory_text"][mid] = summary
+            npc["next_faiss_id"] = mid + 1
+
+        # consume event
+        input_data["last_event"]   = None
+        input_data["event_params"] = {}
+        return input_data
+
+    # build and send prompts
+    system_prompt = (
+        f"You are a memory module for NPC '{npc_id}'. "
+        "Summarize this interaction into one concise sentence, "
+        f"starting with '{npc_id} remembers that...'."
+    )
+    user_prompt = (
+        f"Player said: \"{player_input}\"\n"
+        f"{npc_id} responded: \"{npc_response}\"\n\n"
+        "Summarize as:"
+    )
 
     try:
-        print(f"Memory Synthesizer ({npc_id}): Sending prompt to Groq Llama3 to summarize interaction...")
-        chat_completion = client.chat.completions.create(
+        chat = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
+                {"role":"system","content":system_prompt},
+                {"role":"user",  "content":user_prompt}
             ],
-            model="llama3-8b-8192", # Using a smaller model for summarization
-            temperature=0.5, max_tokens=100, top_p=0.9,
+            model="llama3-8b-8192",
+            temperature=0.5,
+            max_tokens=60
         )
-        llm_summary = chat_completion.choices[0].message.content.strip()
+        llm_summary = chat.choices[0].message.content.strip()
         if llm_summary:
-            memory_update_text = llm_summary
-        else:
-            memory_update_text = f"{npc_id} noted an interaction occurred but no specific summary was generated. (LLM returned empty)"
-        print(f"Memory Synthesizer ({npc_id}): Received summary from Groq: {memory_update_text}")
-
-        memory_embedding_vector = None
-        if SENTENCE_TRANSFORMER_AVAILABLE and embedding_model:
-            try:
-                # Encode returns a numpy array, ensure it's 2D for FAISS (1, EMBEDDING_DIMENSION)
-                raw_embedding = embedding_model.encode(memory_update_text, convert_to_numpy=True)
-                if raw_embedding.ndim == 1:
-                    memory_embedding_vector = np.expand_dims(raw_embedding, axis=0)
-                else:
-                    memory_embedding_vector = raw_embedding
-                # Ensure it's float32, as FAISS often expects this
-                memory_embedding_vector = memory_embedding_vector.astype('float32')
-                norms = np.linalg.norm(memory_embedding_vector, axis=1, keepdims=True)
-                norms[norms == 0] = 1e-12
-                memory_embedding_vector = memory_embedding_vector / norms 
-                print(f"Memory Synthesizer ({npc_id}): Generated embedding for summary (shape: {memory_embedding_vector.shape}).")
-            except Exception as e:
-                print(f"Memory Synthesizer ({npc_id}): Error generating embedding: {e}")
-
-        # --- Save to FAISS --- 
-        if faiss_index is not None and memory_embedding_vector is not None and npc_id != "unknown_npc":
-            try:
-                # The ID for FAISS will be the current `next_faiss_id` (which is effectively the count before adding)
-                faiss_id_to_add = np.array([current_next_faiss_id], dtype='int64')
-                faiss_index.add_with_ids(memory_embedding_vector, faiss_id_to_add)
-                
-                # Store the text separately, mapping our new FAISS ID to the text and originating NPC
-                # The mapping key should be the ID we just used.
-                faiss_id_to_memory_text[current_next_faiss_id] = {
-                    "text": memory_update_text,
-                    "npc_id": npc_id, # Store npc_id for potential multi-NPC scenarios
-                    "timestamp": current_time
-                }
-                
-                new_next_faiss_id = current_next_faiss_id + 1 # Increment for the next addition
-                updated_faiss_components["faiss_index"] = faiss_index # Index is modified in-place
-                updated_faiss_components["faiss_id_to_memory_text"] = faiss_id_to_memory_text
-                updated_faiss_components["next_faiss_id"] = new_next_faiss_id
-
-                print(f"Memory Synthesizer ({npc_id}): Saved memory to FAISS with ID {current_next_faiss_id}. Index size: {faiss_index.ntotal}. Next ID will be: {new_next_faiss_id}")
-            except Exception as e:
-                print(f"Memory Synthesizer ({npc_id}): Error saving memory to FAISS: {e}")
-        elif faiss_index is None:
-            print(f"Memory Synthesizer ({npc_id}): FAISS index not available, skipping save.")
-        elif memory_embedding_vector is None:
-            print(f"Memory Synthesizer ({npc_id}): Embedding not generated, skipping FAISS save.")
-
+            summary = llm_summary
+        print(f"MemorySynthesizer ({npc_id}): LLM summary: {summary}")
     except Exception as e:
-        print(f"Memory Synthesizer ({npc_id}): Error during Groq API call or processing: {e}")
-    
-    return {"memory_update": memory_update_text, **updated_faiss_components} 
+        print(f"MemorySynthesizer ({npc_id}): LLM error {e}, using fallback.")
+
+    # append to raw memory
+    npc["memory"].append(summary)
+
+    # embed + index the summary
+    if npc["faiss_index"] is not None and SENTENCE_TRANSFORMER_AVAILABLE:
+        try:
+            vec = embedding_model.encode(summary, convert_to_numpy=True)
+            if vec.ndim == 1:
+                vec = vec.reshape(1, -1)
+            emb = vec.astype("float32")
+            norms = np.linalg.norm(emb, axis=1, keepdims=True)
+            norms[norms == 0] = 1e-12
+            emb /= norms
+
+            mid = npc["next_faiss_id"]
+            npc["faiss_index"].add_with_ids(emb, np.array([mid], dtype='int64'))
+            npc["faiss_id_to_memory_text"][mid] = {
+                "text":      summary,
+                "timestamp": current_time
+            }
+            npc["faiss_id_to_memory_text"][mid] = {
+                    "text":      summary,
+                    "npc_id":    npc_id,
+                   "timestamp": current_time
+                }
+            npc["next_faiss_id"] = mid + 1
+        except Exception as e:
+            print(f"MemorySynthesizer ({npc_id}): Embedding error {e}")
+
+    # finally, consume the event so it doesn't re-fire
+    input_data["last_event"]        = None
+    input_data["event_params"]      = {}
+    input_data["memory_update"]     = None
+    input_data["memory_owner"]      = None
+
+    return input_data

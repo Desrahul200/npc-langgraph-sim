@@ -1,0 +1,20 @@
+{
+  "investigate_theft": {
+    "title":       "Investigate the theft in Market Plaza",
+    "triggers":    ["thief", "steal", "theft"],
+    "offer_text":   "I heard you're interested in justice. Would you help me investigate the theft in the Market Plaza?",
+    "accept_text":  "Thank you! Meet me at the Market Plaza entrance, and we'll start right away.",
+    "decline_text": "I understand. If you change your mind, just let me know.",
+    "complete_triggers": ["i found the stolen purse", "here is the stolen item"],
+    "complete_text": "Excellent work! You've brought the thief to justice. Here's your reward."
+  },
+  "warn_curfew": {
+    "title":       "Warn the venue before curfew",
+    "triggers":    ["curfew", "lock the gates", "gate[s]? closing"],
+    "offer_text":   "The gates will be closing soon. Could you help warn the merchants?",
+    "accept_text":  "Thank you for helping keep everyone safe!",
+    "decline_text": "No problem, I'll find someone else to help.",
+    "complete_triggers": ["i warned all the merchants", "everyone knows about the curfew"],
+    "complete_text": "Thank you for helping keep everyone safe! The merchants appreciate your warning."
+  }
+} 

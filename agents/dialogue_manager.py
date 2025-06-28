@@ -15,7 +15,8 @@ class DialogueManagerAgent:
     def run_dialogue_manager(self, input_data: 'SimulationState') -> dict:
         print(f"Dialogue Manager received: {summarize_for_printing(input_data, keys_to_redact=['faiss_index'])}")
 
-        player_input = input_data.get("player_input")
+        # grab the latest player utterance from event_params
+        player_input = input_data.get("event_params", {}).get("text")
         npc_response_content = input_data.get("response") # From CharacterAgent
         memory_update_content = input_data.get("memory_update") # From MemorySynthesizer
 
