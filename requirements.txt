@@ -10,3 +10,13 @@ sentence-transformers
 numpy
 fastapi
 uvicorn 
+faiss-cpu
+fastapi
+groq
+langchain
+langgraph
+numpy
+openai
+pydantic
+python-dotenv
+uvicorn
