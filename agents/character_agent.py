@@ -119,7 +119,7 @@ def character_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
                     {"role":"system","content":system_prompt},
                     {"role":"user",  "content":user_prompt}
                 ],
-                model="llama3-8b-8192",
+                model="llama-3.1-8b-instant",
                 temperature=0.7,
                 max_tokens=150,
             )

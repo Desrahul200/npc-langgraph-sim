@@ -15,8 +15,8 @@
   "quest_history": [],
   "last_event": null,
   "event_params": {},
-  "response": "Ah, greetings Bob! I'm Malrik, a merchant who's been traveling these lands for a while. I've got a pouch of spices that'll make your taste buds dance. What brings you to this fine town?",
-  "simulation_time": 1,
+  "response": "Ah, a traveler in need of supplies, I suppose? I have a pouch of fine spices for sale, suitable for any dish.",
+  "simulation_time": 4,
   "time_of_day": "Night",
   "weather": "Windy",
   "pending_quest": null,
@@ -29,16 +29,34 @@
         "spice_pouch"
       ],
       "memory": [
-        "Malrik_merchant remembers that Bob, a traveler, introduced himself and expressed interest in the spices Malrik had to offer, sparking a conversation about Malrik's merchant profession and the town they were in."
+        "Malrik_merchant remembers that Bob, a traveler, introduced himself and expressed interest in the spices Malrik had to offer, sparking a conversation about Malrik's merchant profession and the town they were in.",
+        "malrik_merchant remembers that the player said 'Hello, what do you have for sale?', and malrik_merchant replied '\u2026'.",
+        "malrik_merchant remembers that the player said 'Hello, what do you have for sale?', and malrik_merchant replied '\u2026'.",
+        "malrik_merchant remembers that a traveler inquired about available goods, and he offered a pouch of fine spices for sale."
       ],
       "faiss_id_to_memory_text": {
         "0": {
           "text": "Malrik_merchant remembers that Bob, a traveler, introduced himself and expressed interest in the spices Malrik had to offer, sparking a conversation about Malrik's merchant profession and the town they were in.",
           "npc_id": "malrik_merchant",
           "timestamp": 0
+        },
+        "1": {
+          "text": "malrik_merchant remembers that the player said 'Hello, what do you have for sale?', and malrik_merchant replied '\u2026'.",
+          "npc_id": "malrik_merchant",
+          "timestamp": 1
+        },
+        "2": {
+          "text": "malrik_merchant remembers that the player said 'Hello, what do you have for sale?', and malrik_merchant replied '\u2026'.",
+          "npc_id": "malrik_merchant",
+          "timestamp": 2
+        },
+        "3": {
+          "text": "malrik_merchant remembers that a traveler inquired about available goods, and he offered a pouch of fine spices for sale.",
+          "npc_id": "malrik_merchant",
+          "timestamp": 3
         }
       },
-      "next_faiss_id": 1
+      "next_faiss_id": 4
     },
     "helena_guard": {
       "npc_id": "helena_guard",
