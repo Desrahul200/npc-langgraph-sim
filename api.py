@@ -1,6 +1,8 @@
 # api.py
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import Any, Dict
 import os
@@ -15,6 +17,8 @@ app = FastAPI(
     title="NPC Simulation API",
     description="Expose /load, /tick, /save for your Unreal/Unity client"
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Build your graph once
 graph = build_graph()
@@ -59,6 +63,10 @@ def _startup():
 class TickRequest(BaseModel):
     event: str
     params: Dict[str, Any] = {}
+
+@app.get("/")
+def root():
+    return FileResponse("static/index.html")
 
 @app.post("/load")
 def load_endpoint():
