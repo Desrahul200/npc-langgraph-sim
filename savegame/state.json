@@ -15,8 +15,8 @@
   "quest_history": [],
   "last_event": null,
   "event_params": {},
-  "response": "Ah, a traveler in need of supplies, I suppose? I have a pouch of fine spices for sale, suitable for any dish.",
-  "simulation_time": 4,
+  "response": "I have a fine spice pouch for sale, made from the rare spices of the eastern lands. It's perfect for adding flavor to any dish.",
+  "simulation_time": 5,
   "time_of_day": "Night",
   "weather": "Windy",
   "pending_quest": null,
@@ -32,7 +32,8 @@
         "Malrik_merchant remembers that Bob, a traveler, introduced himself and expressed interest in the spices Malrik had to offer, sparking a conversation about Malrik's merchant profession and the town they were in.",
         "malrik_merchant remembers that the player said 'Hello, what do you have for sale?', and malrik_merchant replied '\u2026'.",
         "malrik_merchant remembers that the player said 'Hello, what do you have for sale?', and malrik_merchant replied '\u2026'.",
-        "malrik_merchant remembers that a traveler inquired about available goods, and he offered a pouch of fine spices for sale."
+        "malrik_merchant remembers that a traveler inquired about available goods, and he offered a pouch of fine spices for sale.",
+        "malrik_merchant remembers that the player inquired about the goods for sale, and he offered a rare spice pouch from the eastern lands."
       ],
       "faiss_id_to_memory_text": {
         "0": {
@@ -54,9 +55,14 @@
           "text": "malrik_merchant remembers that a traveler inquired about available goods, and he offered a pouch of fine spices for sale.",
           "npc_id": "malrik_merchant",
           "timestamp": 3
+        },
+        "4": {
+          "text": "malrik_merchant remembers that the player inquired about the goods for sale, and he offered a rare spice pouch from the eastern lands.",
+          "npc_id": "malrik_merchant",
+          "timestamp": 4
         }
       },
-      "next_faiss_id": 4
+      "next_faiss_id": 5
     },
     "helena_guard": {
       "npc_id": "helena_guard",
