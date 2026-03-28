@@ -88,3 +88,22 @@ def save_endpoint():
     """ Force a save now. """
     save_state(sim_state, SAVE_DIR)
     return {"status": "ok"}
+
+@app.post("/reset")
+def reset_endpoint():
+    """
+    Wipe all state and start a brand-new simulation.
+    Deletes the savegame directory contents and re-initialises from scratch.
+    Useful for Unreal integration testing or starting a fresh playthrough.
+    """
+    global sim_state
+    # Remove persisted files so the next load sees a clean slate
+    for fname in os.listdir(SAVE_DIR):
+        fpath = os.path.join(SAVE_DIR, fname)
+        try:
+            os.remove(fpath)
+        except OSError:
+            pass
+    sim_state = init_fresh_state()
+    print("🔄 Simulation reset to fresh state")
+    return {"status": "reset", "state": _serialize_state(sim_state)}

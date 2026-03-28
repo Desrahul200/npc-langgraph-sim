@@ -297,6 +297,55 @@
     }
 
     .empty-state .icon { font-size: 2.5rem; }
+
+    #reset-btn {
+      background: transparent;
+      border: 1px solid #3d3960;
+      color: #7a779a;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    #reset-btn:hover { border-color: #c06060; color: #e08080; background: #1f1418; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: #1a1825;
+      border: 1px solid #3d3960;
+      border-radius: 14px;
+      padding: 28px 32px;
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+    }
+    .modal h2 { font-size: 1rem; color: #e8e6f0; margin-bottom: 8px; }
+    .modal p  { font-size: 0.82rem; color: #7a779a; line-height: 1.5; margin-bottom: 22px; }
+    .modal-btns { display: flex; gap: 10px; justify-content: center; }
+    .modal-btns button {
+      border-radius: 8px;
+      padding: 8px 22px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 600;
+      border: none;
+    }
+    #modal-cancel { background: #2e2b45; color: #a8a5c8; }
+    #modal-cancel:hover { background: #3a3760; }
+    #modal-confirm { background: #8b3030; color: #ffdede; }
+    #modal-confirm:hover { background: #a03a3a; }
   </style>
 </head>
 <body>
@@ -309,7 +358,19 @@
     <span>💰 <span id="gold">—</span> gold</span>
     <span>⏱ Tick <span id="sim-time">—</span></span>
   </div>
+  <button id="reset-btn">🔄 Reset</button>
 </header>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h2>Reset simulation?</h2>
+    <p>This will wipe all NPC memories, quests, and tick history and start a completely fresh playthrough. This cannot be undone.</p>
+    <div class="modal-btns">
+      <button id="modal-cancel">Cancel</button>
+      <button id="modal-confirm">Reset everything</button>
+    </div>
+  </div>
+</div>
 
 <div class="main">
   <div class="sidebar">
@@ -519,6 +580,60 @@
   document.getElementById('msg-input').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
+
+  // ── Reset ──────────────────────────────────────────────────────────
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    document.getElementById('modal-overlay').classList.add('visible');
+  });
+
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    document.getElementById('modal-overlay').classList.remove('visible');
+  });
+
+  document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-overlay')) {
+      document.getElementById('modal-overlay').classList.remove('visible');
+    }
+  });
+
+  document.getElementById('modal-confirm').addEventListener('click', async () => {
+    const btn = document.getElementById('modal-confirm');
+    btn.textContent = 'Resetting…';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/reset', { method: 'POST' });
+      const data = await res.json();
+      applyState(data.state);
+
+      // clear all chat histories and UI
+      for (const k in histories) delete histories[k];
+      activeNpc = null;
+      document.getElementById('npc-header').style.display = 'none';
+      const msgs = document.getElementById('messages');
+      msgs.innerHTML = `<div class="empty-state" id="empty-state"><div class="icon">💬</div><div>Select an NPC to start talking</div></div>`;
+      document.getElementById('msg-input').disabled = true;
+      document.getElementById('send-btn').disabled = true;
+
+      appendSystemMsgGlobal('✨ Simulation reset. All memories and quests cleared.');
+    } catch (e) {
+      appendSystemMsgGlobal('[Reset failed — check the server]');
+    } finally {
+      document.getElementById('modal-overlay').classList.remove('visible');
+      btn.textContent = 'Reset everything';
+      btn.disabled = false;
+    }
+  });
+
+  function appendSystemMsgGlobal(text) {
+    const container = document.getElementById('messages');
+    container.querySelector('.empty-state')?.remove();
+    const div = document.createElement('div');
+    div.className = 'system-msg';
+    div.textContent = text;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
 
   loadState();
 </script>
