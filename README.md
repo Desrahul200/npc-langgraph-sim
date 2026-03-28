@@ -13,7 +13,8 @@
 - **Narrative director**: rule-based world events and story beats inject context into the simulation  
 - **Gossip system**: private, NPC-to-NPC rumor spreading  
 - **Persistence layer**: full `SimulationState` + FAISS indices snapshot to disk  
-- **FastAPI HTTP API**: expose `/load`, `/tick`, `/save` endpoints for real-time integration with Unreal, Unity or any engine  
+- **FastAPI HTTP API**: expose `/load`, `/tick`, `/save`, and `/reset` endpoints for real-time integration with Unreal, Unity or any engine  
+- **Browser-based Chat UI**: built-in web interface to talk to NPCs, inspect world state, and reset the simulation without any external tooling  
 - **Unreal Engine 5.6 Demo**: C++ component that drives the LLM-powered NPC simulation from inside Unreal Engine
 
 ---
@@ -25,6 +26,8 @@
 - **World state simulation**: time of day, weather, NPC emotions and inventories  
 - **Seamless persistence**: resume play sessions exactly where you left off  
 - **Engine-agnostic API**: easy to hook into any front end or game engine  
+- **Browser chat UI**: talk to any NPC directly in your browser — no API client needed  
+- **One-click reset**: wipe all memories, quests and ticks and start fresh via UI or API  
 - **Unreal Integration**: C++ component with Blueprint support for easy game integration
 
 ---
@@ -35,7 +38,7 @@
 
 - **Python** 3.9 or newer (for backend simulation)
 - **pip** for installing dependencies
-- (Optional) **GROQ API key** for high-quality LLM completions
+- **GROQ API key** for LLM completions — uses `llama-3.1-8b-instant` (get a free key at [console.groq.com](https://console.groq.com))
 - **Unreal Engine 5.6** (Launcher build is fine) - for Unreal demo
 - **Visual Studio 2022 Community** with "Desktop development with C++" workload - for Unreal demo
 
@@ -47,7 +50,7 @@ Create a `.env` file in project root:
 GROQ_API_KEY=your_groq_api_key
 ```
 
-If you omit `GROQ_API_KEY`, the sim will fallback to simple rule-based summaries.
+Without `GROQ_API_KEY`, the simulation falls back to simple rule-based memory summaries and NPCs will reply with `…` instead of generated dialogue.
 
 The save directory defaults to `savegame/`. You can change it in `main.py` or `api.py`.
 
@@ -94,9 +97,11 @@ npc-langgraph-sim/
 │   └── ...
 ├── workflows/
 │   └── npc_simulation_graph.py    # Graph definition & routing
+├── static/
+│   └── index.html         # Browser-based NPC chat UI
 ├── persistence.py         # save_state / load_state helpers
 ├── main.py                # CLI entrypoint
-├── api.py                 # FastAPI HTTP server
+├── api.py                 # FastAPI HTTP server (serves UI + API)
 ├── quests.json            # Quest configuration
 ├── requirements.txt
 ├── README.md
@@ -132,18 +137,37 @@ python main.py --input_type user --text "Hello, how are you?"
 
 Saves state to `savegame/` on every tick. Reloads `savegame/` on start if present.
 
-### 2. HTTP API
+### 2. Browser Chat UI
+
+Once the server is running, open your browser and navigate to:
+
+```
+http://localhost:5000
+```
+
+The built-in chat interface lets you:
+
+- **Select any NPC** from the left sidebar — Malrik Merchant, Helena Guard, or Rowan Bard
+- **Chat freely** — type a message and hit Send (or Enter); the NPC replies via LLM in real time
+- **Watch emotion update** — each NPC's emotion badge (neutral / happy / sad / angry / curious) changes live based on the conversation
+- **Track world state** — weather, time of day, gold, and current tick are shown in the header bar
+- **Reset** — click the **🔄 Reset** button in the top-right corner to wipe all memories, quests, and ticks and start a fresh playthrough (a confirmation dialog prevents accidental resets)
+
+### 3. HTTP API
 
 Start the server:
 
 ```bash
-uvicorn api:app --reload --host 0.0.0.0 --port 8000
+uvicorn api:app --host 0.0.0.0 --port 5000
 ```
 
 **Endpoints:**
 
+#### GET `/`
+Serves the browser chat UI.
+
 #### POST `/load`
-Returns current simulation state
+Returns current simulation state.
 
 ```json
 { "state": { /* SimulationState JSON */ } }
@@ -175,7 +199,14 @@ Persist state to disk. Returns:
 { "status": "ok" }
 ```
 
-### 3. Unreal Engine Demo
+#### POST `/reset`
+Wipe all NPC memories, quests, ticks, and saved files — then return a brand-new simulation state. Useful for Unreal integration testing or starting a fresh playthrough without restarting the server.
+
+```json
+{ "status": "reset", "state": { /* fresh SimulationState */ } }
+```
+
+### 4. Unreal Engine Demo
 
 **Run the demo:**
 1. Open `unreal/MyProject/MyProject.uproject`
@@ -194,6 +225,7 @@ Persist state to disk. Returns:
 | `CallLoad()` | fetch initial state | ✅ |
 | `CallTick(EventName, ParamsJson)` | advance simulation | ✅ |
 | `CallSave()` | snapshot state | ✅ |
+| `CallReset()` | wipe state and start fresh | ✅ |
 
 | Delegate | Payload |
 |----------|---------|
@@ -229,7 +261,7 @@ Bind OnSimStateUpdated → "Load Json From String" → "Get String Field 'respon
 
 **Unreal Blueprint:**
 1. Create HTTP Request node
-2. Set URL to `http://localhost:8000/tick`
+2. Set URL to `http://localhost:5000/tick`
 3. Set Content-Type to `application/json`
 4. Send JSON payload with event and params
 5. Parse response to get NPC reply
